@@ -36,7 +36,7 @@ def count_yum_updates():
     updates_count = 0
     for line in stdout:
         line = line.strip()
-        if line.startswith('Available updates') or line.startswith("Updated Packages"):
+        if line.startswith('Available Upgrades') or line.startswith("Updated Packages"):
             start_count = True
             continue
 
@@ -74,8 +74,8 @@ if __name__ == '__main__':
     passphrase = opts.passphrase or ''
 
     # Try to get numeic warning/critical values
-    s_warning = opts.warning or DEFAULT_WARNING
-    s_critical = opts.critical or DEFAULT_CRITICAL
+    s_warning = int(opts.warning or DEFAULT_WARNING)
+    s_critical = int(opts.critical or DEFAULT_CRITICAL)
 
     # Ok now connect, and try to get values for memory
     client = lib.ssh_connect(hostname, port, ssh_key_file, passphrase, user)
@@ -99,11 +99,11 @@ if __name__ == '__main__':
     pm_message = "Package manager detected: '%s'" % package_manager
 
     if pending_updates > s_critical:
-        lib.exit_with_status(lib.CRITICAL, "%d pending updates", pm_message)
+        lib.exit_with_status(lib.CRITICAL, "%d pending updates" % pending_updates, pm_message)
     if pending_updates > s_warning:
-        lib.exit_with_status(lib.WARNING, "%d pending updates", pm_message)
+        lib.exit_with_status(lib.WARNING, "%d pending updates" % pending_updates, pm_message)
 
     if pending_updates == 0:
         lib.exit_with_status(lib.OK, "No pending updates", pm_message)
     else:
-        lib.exit_with_status(lib.OK, "%d pending updates", pm_message)
+        lib.exit_with_status(lib.OK, "%d pending updates" % pending_updates, pm_message)
