@@ -1,3 +1,3 @@
-[submodule "lib_shinken_plugin"]
+[submodule "libexec/lib_shinken_plugin"]
 	path = libexec/lib_shinken_plugin
 	url = https://github.com/macarrie/lib_shinken_plugin
