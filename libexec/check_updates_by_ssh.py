@@ -30,7 +30,9 @@ def get_package_manager(client):
 
 
 def count_yum_updates():
-    stdin, stdout, stderr = client.exec_command('LC_ALL=C yum list updates')
+    stdin, stdout, stderr = client.exec_command('yum check-update')
+    if stdout.channel.recv_exit_status() == 0:
+        return 0
 
     start_count = False
     updates_count = 0
