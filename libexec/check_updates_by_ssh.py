@@ -34,6 +34,7 @@ def count_yum_updates():
     if stdout.channel.recv_exit_status() == 0:
         return 0
 
+    stdin, stdout, stderr = client.exec_command('yum list updates')
     start_count = False
     updates_count = 0
     for line in stdout:
@@ -52,7 +53,13 @@ def count_yum_updates():
 
 
 def count_apt_updates():
-    lib.exit_with_status(lib.UNKNOWN, "apt updates not yet implemented")
+    stdin, stdout, stderr = client.exec_command('LC_ALL=C apt list --upgradeable | tail -n +2')
+    updates_count = 0
+    for line in stdout:
+        line = line.strip()
+        updates_count += 1
+
+    return updates_count
 
 
 def count_pkg_updates():
