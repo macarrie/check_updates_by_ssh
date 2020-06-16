@@ -20,6 +20,7 @@ def get_package_manager(client):
     package_managers = [
             "yum",
             "apt",
+            "portmaster",
             "pkg",
             ]
 
@@ -29,12 +30,19 @@ def get_package_manager(client):
             return pm
 
 
-def count_yum_updates():
-    stdin, stdout, stderr = client.exec_command('yum check-update')
+def count_yum_updates(security_only = False):
+    check_cmd = 'yum check-update'
+    count_cmd = 'yum list updates'
+
+    if security_only:
+        check_cmd = 'yum --security check-update'
+        count_cmd = 'yum --security list updates'
+
+    stdin, stdout, stderr = client.exec_command("LC_ALL=C %s" % check_cmd)
     if stdout.channel.recv_exit_status() == 0:
         return 0
 
-    stdin, stdout, stderr = client.exec_command('yum list updates')
+    stdin, stdout, stderr = client.exec_command("LC_ALL=C %s" % count_cmd)
     start_count = False
     updates_count = 0
     for line in stdout:
@@ -47,13 +55,18 @@ def count_yum_updates():
             updates_count += 1
 
     if not start_count:
-        lib.exit_with_status(lib.UNKNOWN, "Cannot parse yum updates to count updates")
+        lib.exit_with_status(lib.UNKNOWN, "Cannot parse yum output to count updates")
 
     return updates_count
 
 
-def count_apt_updates():
-    stdin, stdout, stderr = client.exec_command('LC_ALL=C apt list --upgradeable | tail -n +2')
+def count_apt_updates(security_only = False):
+    count_cmd = 'aptitude search "~U"'
+
+    if security_only:
+        count_cmd = 'aptitude search "~U" -F "%p %O" | grep -- "-Security"'
+
+    stdin, stdout, stderr = client.exec_command('LC_ALL=C %s' % count_cmd)
     updates_count = 0
     for line in stdout:
         line = line.strip()
@@ -62,14 +75,30 @@ def count_apt_updates():
     return updates_count
 
 
-def count_pkg_updates():
+def count_portmaster_updates(security_only = False):
+    if security_only:
+        lib.exit_with_status(lib.UNKNOWN, "Portmaster security updates count not supported yet")
+
+    stdin, stdout, stderr = client.exec_command('LC_ALL=C portmaster -L -P')
+    updates_count = 0
+    for line in stdout:
+        line = line.strip()
+
+        if "New version available" in line:
+            updates_count += 1
+
+    return updates_count
+
+
+def count_pkg_updates(security_only = False):
     lib.exit_with_status(lib.UNKNOWN, "freebsd pkg updates not yet implemented")
 
 
-parser = lib.get_ssh_parser(VERSION)
-
 
 if __name__ == '__main__':
+    parser = lib.get_ssh_parser(VERSION)
+    parser.add_argument('-s', '--security', dest="security", type=int, default=0, help='Count security updates only. Default: 0')
+
     # Ok first job : parse args
     opts = parser.parse_args()
 
@@ -81,8 +110,9 @@ if __name__ == '__main__':
     ssh_key_file = opts.ssh_key_file or os.path.expanduser('~/.ssh/id_rsa')
     user = opts.user or 'shinken'
     passphrase = opts.passphrase or ''
+    security_only = (opts.security == 1) or False
 
-    # Try to get numeic warning/critical values
+    # Try to get numeric warning/critical values
     s_warning = int(opts.warning or DEFAULT_WARNING)
     s_critical = int(opts.critical or DEFAULT_CRITICAL)
 
@@ -96,13 +126,16 @@ if __name__ == '__main__':
         lib.exit_with_status(lib.UNKNOWN, "Cannot find package manager or package manager unsupported")
 
     if package_manager == "yum":
-        pending_updates = count_yum_updates()
+        pending_updates = count_yum_updates(security_only)
 
     if package_manager == "apt":
-        pending_updates = count_apt_updates()
+        pending_updates = count_apt_updates(security_only)
+
+    if package_manager == "portmaster":
+        pending_updates = count_portmaster_updates(security_only)
 
     if package_manager == "pkg":
-        pending_updates = count_pkg_updates()
+        pending_updates = count_pkg_updates(security_only)
 
     lib.add_perfdata("pending_updates", pending_updates, s_warning, s_critical)
     pm_message = "Package manager detected: '%s'" % package_manager
